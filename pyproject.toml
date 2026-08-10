@@ -1,0 +1,13 @@
+[project]
+name = "sql-data-agent"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "langchain>=1.3.14",
+    "langchain-community>=0.4.2",
+    "langchain-ollama>=1.1.0",
+    "langgraph>=1.2.10",
+    "streamlit>=1.61.1",
+]
