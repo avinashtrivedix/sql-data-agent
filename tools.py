@@ -9,7 +9,7 @@ MUTATION_NODES = (
     exp.Delete,
     exp.Insert,
     exp.Update,
-    exp.AlterTable,
+    exp.Alter,
     exp.Create,
     exp.Command,
 )
