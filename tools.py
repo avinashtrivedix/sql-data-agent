@@ -4,7 +4,6 @@ from langchain_core.tools import tool
 from db_utils import run_query
 from schema_indexer import retrieve_relevant_schema
 
-# Node types that alter, insert, or destroy database data
 MUTATION_NODES = (
     exp.Drop,
     exp.Delete,
@@ -43,19 +42,21 @@ def validate_readonly_ast(sql_query: str) -> tuple[bool, str]:
 
 
 @tool
-def get_db_schema(query: str) -> str:
+def get_db_schema(user_question: str) -> str:
     """
-    Retrieves the most semantically relevant table schemas from the database using vector search.
-    Always pass the user's natural language question into this tool before writing a SQL query.
+    Searches and retrieves the exact database table and column schemas relevant to the user question.
+    Args:
+        user_question: The natural language question asked by the user.
     """
-    return retrieve_relevant_schema(query, top_k=2)
+    return retrieve_relevant_schema(user_question, top_k=2)
 
 
 @tool
 def execute_sql_query(sql_query: str) -> str:
     """
-    Executes a read-only SELECT SQL query against the database and returns raw results.
-    Input must be a valid SQL string verified by AST validation.
+    Executes a read-only SELECT SQL query on the SQLite database and returns the raw rows.
+    Args:
+        sql_query: The SQL SELECT statement string to execute.
     """
     is_valid, validation_msg = validate_readonly_ast(sql_query)
     if not is_valid:

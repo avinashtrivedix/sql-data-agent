@@ -1,46 +1,61 @@
+import re
 from langchain_ollama import ChatOllama
-from langgraph.prebuilt import create_react_agent
-from tools import get_db_schema, execute_sql_query
+from schema_indexer import retrieve_relevant_schema
+from tools import execute_sql_query
 
-# 1. Initialize local LLM engine
-llm = ChatOllama(model="qwen2.5", temperature=0)
+# 1. Initialize local lightweight LLM
+llm = ChatOllama(model="llama3.2", temperature=0)
 
-# 2. Register tools
-tools = [get_db_schema, execute_sql_query]
+SQL_PROMPT_TEMPLATE = """You are a SQL Data Analyst. Write a single SQLite SELECT query to answer the user's question.
 
-# 3. Guardrailed System Prompt
-SYSTEM_PROMPT = """You are a SQL Data Analyst assistant connected to a SQLite database.
+Relevant Database Schema:
+{schema}
 
-CRITICAL WORKFLOW & QUOTING RULES:
-1. Always call 'get_db_schema' FIRST to inspect table names and columns.
-2. Inside your SQL queries, ALWAYS use SINGLE QUOTES for string literals (e.g. WHERE department = 'Engineering'). NEVER use double quotes inside SQL.
-3. Call 'execute_sql_query' immediately to run the query.
-4. Summarize the returned results.
+User Question: {question}
 
-Valid SQL Example:
-SELECT name, salary FROM employees WHERE department = 'Engineering' ORDER BY salary DESC LIMIT 1;
+MANDATORY RULES:
+1. Return ONLY the raw SQL query inside a ```sql ... ``` block.
+2. Use ONLY the table and column names specified in the schema above.
+3. The query MUST be a read-only SELECT statement.
 """
 
-# 4. Create agent graph
-agent_executor = create_react_agent(
-    model=llm,
-    tools=tools,
-    prompt=SYSTEM_PROMPT
-)
+def run_agent(user_query: str) -> str:
+    """
+    Production-grade SLM pipeline:
+    1. Semantically retrieves relevant schemas via ChromaDB.
+    2. Directly conditions the LLM with the retrieved schema context.
+    3. Extracts SQL, validates AST safety, and executes against SQLite.
+    """
+    # 1. Retrieve relevant schema using ChromaDB vector search
+    retrieved_schema = retrieve_relevant_schema(user_query, top_k=2)
+    
+    # 2. Format prompt with schema context
+    prompt = SQL_PROMPT_TEMPLATE.format(
+        schema=retrieved_schema,
+        question=user_query
+    )
+    
+    # 3. Model generates the SQL query
+    response = llm.invoke(prompt)
+    raw_content = response.content
+    
+    # 4. Extract SQL from code block or raw text
+    sql_match = re.search(r"```sql\s*(.*?)\s*```", raw_content, re.DOTALL | re.IGNORECASE)
+    if sql_match:
+        sql_query = sql_match.group(1).strip()
+    else:
+        # Fallback to single line/clean string if no markdown blocks used
+        sql_query = raw_content.strip()
+
+    # 5. Execute through our SQLGlot AST validation engine
+    db_result = execute_sql_query.invoke({"sql_query": sql_query})
+    
+    return f"**Retrieved Schema:**\n```\n{retrieved_schema}\n```\n\n**Generated SQL:**\n```sql\n{sql_query}\n```\n\n**Result:**\n`{db_result}`"
+
 
 if __name__ == "__main__":
-    user_query = "Which employee has the highest total sales volume, and what is their name?"
-    print(f"User Question: {user_query}\n")
-    print("--- Full Agent Execution Trace ---")
-
-    response = agent_executor.invoke({"messages": [("user", user_query)]})
-
-    for i, msg in enumerate(response["messages"]):
-        role = msg.type.upper()
-        print(f"\n[Step {i+1} - {role}]:")
-        
-        if hasattr(msg, "tool_calls") and msg.tool_calls:
-            print(f"Tool Invoked: {msg.tool_calls[0]['name']}")
-            print(f"Arguments: {msg.tool_calls[0]['args']}")
-        else:
-            print(msg.content)
+    print("=== Testing Direct SLM Vector-Augmented Pipeline ===")
+    test_query = "What is the total sum of all sales amounts?"
+    
+    output = run_agent(test_query)
+    print("\n" + output)
