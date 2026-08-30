@@ -1,27 +1,23 @@
-# 📊 Autonomous SQL Data Agent (Text-to-SQL)
+# Autonomous Text-to-SQL Data Agent
 
-An end-to-end autonomous AI Data Analyst built with Python, LangGraph, Streamlit, and local LLMs (Ollama). The agent converts natural language questions into executable SQL queries, inspects database schemas dynamically, enforces strict read-only safety guardrails, and presents aggregated summaries via an interactive chat interface.
+An enterprise-grade Text-to-SQL AI agent built with **LangChain**, **ChromaDB**, and **SQLGlot**. Translates natural language into optimized relational SQL queries with AST-based security validation, semantic vector schema retrieval, and deterministic execution.
 
-![App Screenshot](demo.png)
+## Architecture
+User Query ──► ChromaDB Vector Retrieval ──► Top-K Relevant Schemas
+│
+▼
+Llama 3.2 (Local via Ollama)
+│
+▼
+SQLGlot AST Validation ──► [Blocks DROP / Mutations]
+│
+▼
+SQLite Engine (Safe Execution) ──► Structured Output
 
-## 🚀 Key Features
+## Key Engineering Features
 
-- **Dynamic Schema Discovery:** Queries system metadata (`PRAGMA table_info`) before query formulation to prevent column hallucination.
-- **ReAct State Loop:** Powered by `LangGraph` and `LangChain` to handle complex queries, relational `JOIN` statements, and multi-table aggregations.
-- **Security Guardrails:** Deterministic Python regex validation that intercepts and blocks data mutation commands (`DROP`, `DELETE`, `UPDATE`, `INSERT`).
-- **Interactive UI:** Built with Streamlit, featuring real-time execution traces, generated SQL inspection, and schema sidebars.
+- **AST Query Validation (`SQLGlot`):** Replaces brittle regex matching with Abstract Syntax Tree parsing to guarantee strictly read-only `SELECT` queries and prevent subquery injection attacks.
+- **Dynamic Vector Schema Indexing (`ChromaDB`):** Performs semantic cosine similarity search over table metadata, dynamically injecting only relevant table schemas into the context window to eliminate prompt bloat and column hallucinations.
+- **Deterministic SLM Execution Pipeline:** Formats schema context directly for lightweight local models (Llama 3.2), avoiding function-calling dropouts while maintaining low memory overhead.
+- **Automated Benchmark Evaluation Suite:** Evaluates performance against standard Text-to-SQL metrics (Execution Accuracy & AST Safety).
 
-## 🛠️ Tech Stack
-
-- **Language:** Python 3.12 (managed via `uv`)
-- **Agent Orchestration:** LangGraph / LangChain
-- **LLM Runner:** Ollama (`llama3.2`)
-- **Database:** SQLite
-- **Frontend:** Streamlit
-
-## ⚙️ Quickstart
-
-1. **Clone the repository:**
-   ```bash
-   git clone [https://github.com/YOUR_GITHUB_USERNAME/sql-data-agent.git](https://github.com/YOUR_GITHUB_USERNAME/sql-data-agent.git)
-   cd sql-data-agent
