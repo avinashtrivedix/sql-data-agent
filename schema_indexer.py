@@ -10,7 +10,7 @@ schema_collection = chroma_client.get_or_create_collection(
 )
 
 def index_live_database(db_path: str = "data.db"):
-    """Reads all real tables dynamically from SQLite and indexes them into ChromaDB."""
+    """Reads tables AND sample data dynamically to prevent LLM hallucinations."""
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
@@ -22,9 +22,20 @@ def index_live_database(db_path: str = "data.db"):
     metadatas = []
 
     for table in tables:
+        # 1. Get column definitions
         cursor.execute(f"PRAGMA table_info('{table}');")
         columns = [f"{col[1]} ({col[2]})" for col in cursor.fetchall()]
-        schema_text = f"Table '{table}': {', '.join(columns)}"
+        
+        # 2. Get 2 rows of sample data (NEW)
+        try:
+            cursor.execute(f"SELECT * FROM {table} LIMIT 2;")
+            sample_rows = cursor.fetchall()
+            sample_text = f"Sample Data: {sample_rows}"
+        except Exception:
+            sample_text = "Sample Data: None"
+
+        # 3. Combine schema and sample data for the LLM to read
+        schema_text = f"Table '{table}': {', '.join(columns)}\n{sample_text}"
 
         ids.append(table)
         documents.append(f"Table name: {table}. Schema definition: {schema_text}")
@@ -35,22 +46,19 @@ def index_live_database(db_path: str = "data.db"):
     if ids:
         schema_collection.upsert(ids=ids, documents=documents, metadatas=metadatas)
 
-# Index actual data.db file on startup
+# Index on startup
 index_live_database()
 
 def retrieve_relevant_schema(query: str, top_k: int = 2) -> str:
-    """Finds the most relevant real table schemas from data.db based on semantic similarity."""
     results = schema_collection.query(query_texts=[query], n_results=top_k)
-    
     retrieved = []
     if results and "metadatas" in results and results["metadatas"]:
         for match in results["metadatas"][0]:
             retrieved.append(match["schema"])
-    return "\n".join(retrieved)
+    return "\n\n".join(retrieved)
 
 
 if __name__ == "__main__":
-    print("=== Testing Live Database Schema Retrieval ===")
-    user_q = "What is the highest salary paid?"
-    print(f"Query: '{user_q}'")
-    print(retrieve_relevant_schema(user_q, top_k=1))
+    print("=== Testing Augmented Schema Indexer ===")
+    user_q = "employee 1 sales"
+    print(retrieve_relevant_schema(user_q, top_k=2))
