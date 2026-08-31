@@ -1,5 +1,7 @@
 # Autonomous Text-to-SQL Data Agent
 
+![Enterprise SQL Data Agent Demo](assets/demo.png)
+
 An enterprise-grade Text-to-SQL AI agent built with **LangChain**, **ChromaDB**, and **SQLGlot**. Translates natural language into optimized relational SQL queries with AST-based security validation, semantic vector schema retrieval, and deterministic execution.
 
 ## Architecture
